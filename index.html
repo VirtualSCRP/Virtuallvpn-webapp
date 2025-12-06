@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VirtualLVPN</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        body {
+            background: #000;
+            color: white;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Cosmic Background */
+        .cosmic-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0b2e 25%, #0c0521 50%, #1a0b2e 75%, #0a0a0a 100%);
+            background-size: 400% 400%;
+            animation: cosmicShift 15s ease infinite;
+            z-index: -2;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 90px 40px, #ddd, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 130px 80px, #fff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 160px 20px, #ddd, rgba(0,0,0,0));
+            background-size: 200px 200px;
+            animation: starsTwinkle 3s infinite;
+        }
+
+        .nebula {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle at 30% 30%, rgba(138, 43, 226, 0.2), transparent 70%);
+            filter: blur(40px);
+            animation: nebulaFloat 20s infinite alternate ease-in-out;
+        }
+
+        .nebula:nth-child(2) {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle at 70% 70%, rgba(76, 0, 255, 0.15), transparent 70%);
+            animation-delay: -10s;
+            animation-duration: 25s;
+        }
+
+        /* Loading Screen - Cosmic */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .portal-loader {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin-bottom: 30px;
+        }
+
+        .portal-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-radius: 50%;
+            border-top-color: #9d4edd;
+            animation: portalSpin 2s linear infinite;
+        }
+
+        .portal-ring:nth-child(2) {
+            width: 80%;
+            height: 80%;
+            top: 10%;
+            left: 10%;
+            border-top-color: #7b2cbf;
+            animation-direction: reverse;
+            animation-duration: 1.5s;
+        }
+
+        .portal-ring:nth-child(3) {
+            width: 60%;
+            height: 60%;
+            top: 20%;
+            left: 20%;
+            border-top-color: #5a189a;
+            animation-duration: 1s;
+        }
+
+        .portal-core {
+            position: absolute;
+            width: 40%;
+            height: 40%;
+            top: 30%;
+            left: 30%;
+            background: linear-gradient(135deg, #9d4edd, #7b2cbf);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: portalPulse 2s ease-in-out infinite;
+        }
+
+        .portal-core::before {
+            content: '';
+            position: absolute;
+            width: 80%;
+            height: 80%;
+            background: rgba(157, 78, 221, 0.3);
+            border-radius: 50%;
+            animation: portalCoreGlow 2s ease-in-out infinite;
+        }
+
+        .loading-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #9d4edd, #7b2cbf, #5a189a);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        .loading-subtitle {
+            font-size: 14px;
+            color: #bbb;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .progress-container {
+            width: 250px;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #9d4edd, #7b2cbf, #5a189a);
+            border-radius: 10px;
+            animation: loadingProgress 3s ease-out forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: progressShine 2s ease-in-out infinite;
+        }
+
+        /* Main App */
+        .screen {
+            display: none;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 80px;
+            overflow-y: auto;
+        }
+
+        .active {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes cosmicShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @keyframes starsTwinkle {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes nebulaFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(100px, 100px) scale(1.2); }
+        }
+
+        @keyframes portalSpin {
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes portalPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(157, 78, 221, 0.5); }
+            50% { transform: scale(1.1); box-shadow: 0 0 40px rgba(157, 78, 221, 0.8); }
+        }
+
+        @keyframes portalCoreGlow {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.5); opacity: 0.6; }
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes loadingProgress {
+            to { width: 100%; }
+        }
+
+        @keyframes progressShine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Header */
+        .app-header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .main-title {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #9d4edd, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .main-subtitle {
+            font-size: 14px;
+            color: #bbb;
+            line-height: 1.4;
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(157, 78, 221, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #9d4edd;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(157, 78, 221, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, #9d4edd, #7b2cbf);
+            border: none;
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(157, 78, 221, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(157, 78, 221, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(157, 78, 221, 0.2);
+        }
+
+        .btn-admin {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-admin::before {
+            content: '👑';
+            position: absolute;
+            left: 15px;
+        }
+
+        /* Profile */
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #9d4edd, #7b2cbf);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .profile-info {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .key-display {
+            background: rgba(157, 78, 221, 0.1);
+            border: 1px solid rgba(157, 78, 221, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+
+        /* Subscription Info */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .info-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .info-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #9d4edd;
+            margin-bottom: 5px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #bbb;
+        }
+
+        /* Admin Panel */
+        .admin-section {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #9d4edd;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(157, 78, 221, 0.3);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: #888;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .nav-btn.active {
+            background: rgba(157, 78, 221, 0.2);
+            color: #9d4edd;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        /* Modals */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(26, 11, 46, 0.9), rgba(10, 10, 10, 0.9));
+            border: 1px solid rgba(157, 78, 221, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            max-width: 400px;
+            width: 100%;
+            backdrop-filter: blur(20px);
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #9d4edd;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #bbb;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #bbb;
+            font-size: 14px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(157, 78, 221, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #9d4edd;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 11, 46, 0.95);
+            border: 1px solid #9d4edd;
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            backdrop-filter: blur(20px);
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification.active {
+            display: flex;
+        }
+
+        .notification-icon {
+            font-size: 24px;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #9d4edd;
+        }
+
+        .notification-message {
+            font-size: 13px;
+            color: #bbb;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: #bbb;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Status Indicators */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+
+        .status-inactive {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        .status-pending {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <!-- Cosmic Background -->
+    <div class="cosmic-bg"></div>
+    <div class="stars"></div>
+    <div class="nebula"></div>
+    <div class="nebula"></div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <div class="portal-loader">
+            <div class="portal-ring"></div>
+            <div class="portal-ring"></div>
+            <div class="portal-ring"></div>
+            <div class="portal-core">
+                <span style="font-size: 20px; font-weight: bold;">VPN</span>
+            </div>
+        </div>
+        
+        <h1 class="loading-title">VirtualLVPN</h1>
+        <p class="loading-subtitle">Инициализация защищенного космического подключения...</p>
+        
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- Main Screen -->
+    <div id="mainScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">🚀 VirtualLVPN</h1>
+            <p class="main-subtitle">Премиум VPN с гарантированным обходом блокировок</p>
+        </div>
+
+        <div class="card">
+            <div class="profile-info">
+                <div class="profile-avatar" id="userAvatar">U</div>
+                <h3 id="userName">Загрузка...</h3>
+                <div class="status-badge status-active" id="userStatus">Подключение...</div>
+            </div>
+
+            <div class="key-display" id="userKey">Загрузка ключа...</div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-value" id="daysLeft">0</div>
+                    <div class="info-label">Дней осталось</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value" id="serversCount">2</div>
+                    <div class="info-label">Серверов</div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="showScreen('subscription')">
+            <span>👑</span> Моя подписка
+        </button>
+
+        <button class="btn" onclick="showScreen('servers')">
+            <span>🌐</span> Мои серверы
+        </button>
+
+        <button class="btn" onclick="showScreen('promocodes')">
+            <span>🎫</span> Промокоды
+        </button>
+
+        <button class="btn" onclick="getGift()" id="giftButton">
+            <span>🎁</span> Получить подарок (3 дня)
+        </button>
+
+        <button class="btn btn-secondary" onclick="showScreen('support')">
+            <span>💬</span> Поддержка
+        </button>
+
+        <button class="btn btn-secondary" onclick="showScreen('instructions')">
+            <span>📱</span> Как подключиться
+        </button>
+
+        <!-- Admin Button (visible only for admin) -->
+        <button class="btn btn-admin" onclick="showScreen('admin')" id="adminButton" style="display: none;">
+            <span>👑</span> Админ-панель
+        </button>
+    </div>
+
+    <!-- Subscription Screen -->
+    <div id="subscriptionScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">👑 Подписка</h1>
+            <p class="main-subtitle">Управление вашей подпиской</p>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">📊 Статус подписки</h3>
+            
+            <div class="info-item" style="margin-bottom: 15px;">
+                <div class="info-label">Ключ подписки</div>
+                <div class="info-value" id="subscriptionKeyDetail" style="font-size: 16px;">Загрузка...</div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Активна до</div>
+                    <div class="info-value" id="subscriptionEndDetail">--.--.----</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Дней осталось</div>
+                    <div class="info-value" id="daysLeftDetail">0</div>
+                </div>
+            </div>
+
+            <div class="info-item" style="margin-top: 15px;">
+                <div class="info-label">Статус</div>
+                <div class="status-badge status-active" id="subscriptionStatus">Активна</div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="buySubscription()">
+            <span>💳</span> Купить подписку
+        </button>
+
+        <button class="btn btn-secondary" onclick="showScreen('promocodes')">
+            <span>🎫</span> Активировать промокод
+        </button>
+
+        <button class="btn btn-secondary" onclick="showScreen('referral')">
+            <span>👥</span> Пригласить друга
+        </button>
+    </div>
+
+    <!-- Servers Screen -->
+    <div id="serversScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">🌐 Серверы</h1>
+            <p class="main-subtitle">Доступные серверы VirtualLVPN</p>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">🇷🇺 Сервер Самара</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Статус</div>
+                    <div class="status-badge status-active">🟢 Онлайн</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Тип</div>
+                    <div class="info-value" style="font-size: 14px;">VLESS / TCP</div>
+                </div>
+            </div>
+            <div style="margin-top: 10px; font-size: 13px; color: #bbb;">
+                Высокоскоростной сервер с обходом блокировок
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">🇷🇺 Сервер Москва</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Статус</div>
+                    <div class="status-badge status-active">🟢 Онлайн</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Тип</div>
+                    <div class="info-value" style="font-size: 14px;">VLESS / TCP</div>
+                </div>
+            </div>
+            <div style="margin-top: 10px; font-size: 13px; color: #bbb;">
+                Премиум сервер для стабильного соединения
+            </div>
+        </div>
+
+        <button class="btn" onclick="copyConfig()">
+            <span>📋</span> Скопировать конфигурацию
+        </button>
+
+        <button class="btn btn-secondary" onclick="showScreen('instructions')">
+            <span>📱</span> Инструкция по подключению
+        </button>
+    </div>
+
+    <!-- Promocodes Screen -->
+    <div id="promocodesScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">🎫 Промокоды</h1>
+            <p class="main-subtitle">Активируйте промокод для получения бонусов</p>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">Активные промокоды</h3>
+            <div style="margin-bottom: 15px;">
+                <div style="background: rgba(157, 78, 221, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 10px;">
+                    <div style="font-weight: bold; color: #9d4edd; margin-bottom: 5px;">FREE</div>
+                    <div style="font-size: 13px; color: #bbb;">7 дней бесплатной подписки</div>
+                </div>
+                <div style="background: rgba(157, 78, 221, 0.1); padding: 12px; border-radius: 8px;">
+                    <div style="font-weight: bold; color: #9d4edd; margin-bottom: 5px;">WELCOME</div>
+                    <div style="font-size: 13px; color: #bbb;">3 дня бесплатной подписки</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">Активировать промокод</h3>
+            <div class="input-group">
+                <input type="text" class="input-field" id="promoInput" placeholder="Введите промокод">
+            </div>
+            <button class="btn" onclick="activatePromo()" style="margin-top: 10px;">
+                <span>🚀</span> Активировать
+            </button>
+        </div>
+    </div>
+
+    <!-- Admin Panel (Visible only for admin) -->
+    <div id="adminScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">👑 Админ-панель</h1>
+            <p class="main-subtitle">Управление системой VirtualLVPN</p>
+        </div>
+
+        <div class="card admin-section">
+            <h3 style="margin-bottom: 15px; color: #ff6b6b;">📊 Статистика системы</h3>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="adminTotalUsers">0</div>
+                    <div class="stat-label">Пользователей</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="adminActiveSubs">0</div>
+                    <div class="stat-label">Активных подписок</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="adminTotalIncome">0₽</div>
+                    <div class="stat-label">Общий доход</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card admin-section">
+            <h3 style="margin-bottom: 15px; color: #ff6b6b;">⚡ Быстрые действия</h3>
+            
+            <button class="btn btn-secondary" onclick="adminAddSubscription()" style="margin-bottom: 10px;">
+                <span>➕</span> Добавить подписку
+            </button>
+            
+            <button class="btn btn-secondary" onclick="adminCreatePromo()" style="margin-bottom: 10px;">
+                <span>🎫</span> Создать промокод
+            </button>
+            
+            <button class="btn btn-secondary" onclick="adminSendNotification()">
+                <span>📢</span> Отправить уведомление
+            </button>
+        </div>
+
+        <div class="card admin-section">
+            <h3 style="margin-bottom: 15px; color: #ff6b6b;">🔧 Настройки системы</h3>
+            
+            <div class="input-group">
+                <div class="input-label">Тинькофф карта</div>
+                <input type="text" class="input-field" value="2200700508235719" readonly>
+            </div>
+            
+            <div class="input-group">
+                <div class="input-label">CryptoBot API</div>
+                <input type="text" class="input-field" value="Подключен ✅" readonly>
+            </div>
+        </div>
+    </div>
+
+    <!-- Support Screen -->
+    <div id="supportScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">💬 Поддержка</h1>
+            <p class="main-subtitle">Техническая поддержка 24/7</p>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">Контакты поддержки</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="font-weight: bold; margin-bottom: 5px; color: #9d4edd;">Telegram чат:</div>
+                <div style="font-size: 14px; color: #bbb;">@VirtualLVPN_Support</div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="font-weight: bold; margin-bottom: 5px; color: #9d4edd;">Время работы:</div>
+                <div style="font-size: 14px; color: #bbb;">Круглосуточно, 24/7</div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="openSupportChat()">
+            <span>💬</span> Написать в поддержку
+        </button>
+
+        <button class="btn btn-secondary" onclick="showScreen('instructions')">
+            <span>📱</span> Инструкции по подключению
+        </button>
+    </div>
+
+    <!-- Instructions Screen -->
+    <div id="instructionsScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">📱 Подключение</h1>
+            <p class="main-subtitle">Инструкция по настройке V2RayTun</p>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">Android / V2RayTun</h3>
+            
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="background: #9d4edd; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 10px; flex-shrink: 0;">1</div>
+                    <div style="font-size: 14px;">Установите приложение V2RayTun из Google Play</div>
+                </div>
+                
+                <div style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="background: #9d4edd; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 10px; flex-shrink: 0;">2</div>
+                    <div style="font-size: 14px;">Скопируйте ваш ключ подписки</div>
+                </div>
+                
+                <div style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="background: #9d4edd; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 10px; flex-shrink: 0;">3</div>
+                    <div style="font-size: 14px;">В V2RayTun нажмите "+" → "Импорт из буфера обмена"</div>
+                </div>
+                
+                <div style="display: flex; align-items: flex-start;">
+                    <div style="background: #9d4edd; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 10px; flex-shrink: 0;">4</div>
+                    <div style="font-size: 14px;">Вставьте ключ и нажмите "OK". Серверы появятся автоматически!</div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="copyConfig()">
+            <span>📋</span> Скопировать конфигурацию
+        </button>
+    </div>
+
+    <!-- Referral Screen -->
+    <div id="referralScreen" class="screen">
+        <div class="app-header">
+            <h1 class="main-title">👥 Реферальная система</h1>
+            <p class="main-subtitle">Приглашайте друзей и получайте бонусы</p>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #9d4edd;">Ваша реферальная ссылка</h3>
+            <div class="key-display" id="referralLink">Загрузка...</div>
+            
+            <div class="info-grid" style="margin-top: 15px;">
+                <div class="info-item">
+                    <div class="info-value" id="totalReferrals">0</div>
+                    <div class="info-label">Всего рефералов</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value" id="activeReferrals">0</div>
+                    <div class="info-label">Активировали</div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="copyReferralLink()">
+            <span>📋</span> Скопировать ссылку
+        </button>
+
+        <button class="btn btn-secondary" onclick="shareReferral()">
+            <span>📤</span> Поделиться
+        </button>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-btn active" onclick="showScreen('main')">
+            <span class="nav-icon">🏠</span>
+            <span>Главная</span>
+        </button>
+        <button class="nav-btn" onclick="showScreen('subscription')">
+            <span class="nav-icon">👑</span>
+            <span>Подписка</span>
+        </button>
+        <button class="nav-btn" onclick="showScreen('support')">
+            <span class="nav-icon">💬</span>
+            <span>Поддержка</span>
+        </button>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <span class="notification-icon" id="notificationIcon">✅</span>
+        <div class="notification-content">
+            <div class="notification-title" id="notificationTitle">Успешно!</div>
+            <div class="notification-message" id="notificationMessage">Сообщение</div>
+        </div>
+        <button class="notification-close" onclick="hideNotification()">×</button>
+    </div>
+
+    <!-- Add Subscription Modal -->
+    <div class="modal" id="addSubscriptionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">➕ Добавить подписку</h3>
+                <button class="close-btn" onclick="hideModal('addSubscriptionModal')">×</button>
+            </div>
+            
+            <div class="input-group">
+                <div class="input-label">ID пользователя</div>
+                <input type="text" class="input-field" id="adminUserId" placeholder="Введите ID пользователя">
+            </div>
+            
+            <div class="input-group">
+                <div class="input-label">Количество дней</div>
+                <input type="number" class="input-field" id="adminDays" placeholder="Введите количество дней" value="30">
+            </div>
+            
+            <button class="btn" onclick="adminAddSubscriptionConfirm()">
+                <span>✅</span> Добавить подписку
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        let tg = window.Telegram.WebApp;
+        
+        // Данные пользователя
+        let userData = {
+            id: null,
+            name: "Пользователь",
+            subscriptionKey: null,
+            subscriptionEnd: null,
+            isAdmin: false,
+            giftClaimed: false,
+            referralCode: null
+        };
+
+        // Админ ID (ваш ID)
+        const ADMIN_ID = 8053946704;
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            tg.expand();
+            tg.enableClosingConfirmation();
+            
+            // Получаем данные из Telegram
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                const tgUser = tg.initDataUnsafe.user;
+                userData.id = tgUser.id;
+                userData.name = tgUser.first_name || "Пользователь";
+                
+                // Проверяем, является ли пользователь администратором
+                userData.isAdmin = (tgUser.id === ADMIN_ID);
+                
+                // Генерируем уникальный ключ подписки на основе ID пользователя
+                userData.subscriptionKey = `VLPN-${userData.id.toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+                userData.referralCode = `ref${userData.id}${Math.random().toString(36).substr(2, 4)}`;
+                
+                // Проверяем локальное хранилище на подарок
+                userData.giftClaimed = localStorage.getItem(`giftClaimed_${userData.id}`) === 'true';
+                
+                // Пытаемся получить данные о подписке из локального хранилища
+                const savedSubscription = localStorage.getItem(`subscription_${userData.id}`);
+                if (savedSubscription) {
+                    const parsed = JSON.parse(savedSubscription);
+                    userData.subscriptionEnd = new Date(parsed.endDate);
+                }
+            }
+            
+            // Симуляция загрузки
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+                showScreen('main');
+                initUserData();
+                
+                // Показываем кнопку админа если пользователь - администратор
+                if (userData.isAdmin) {
+                    document.getElementById('adminButton').style.display = 'block';
+                }
+            }, 3000);
+        });
+
+        function initUserData() {
+            // Устанавливаем данные пользователя
+            document.getElementById('userName').textContent = userData.name;
+            document.getElementById('userAvatar').textContent = userData.name.charAt(0).toUpperCase();
+            document.getElementById('userKey').textContent = userData.subscriptionKey;
+            
+            // Обновляем информацию о подписке
+            updateSubscriptionInfo();
+            
+            // Устанавливаем реферальную ссылку
+            document.getElementById('referralLink').textContent = `t.me/VirtualLVPN_bot?start=${userData.referralCode}`;
+            
+            // Скрываем кнопку подарка если уже получали
+            if (userData.giftClaimed) {
+                document.getElementById('giftButton').style.display = 'none';
+            }
+            
+            // Обновляем статус
+            updateUserStatus();
+            
+            // Инициализируем админ-панель если пользователь - администратор
+            if (userData.isAdmin) {
+                initAdminPanel();
+            }
+        }
+
+        function updateSubscriptionInfo() {
+            const daysLeft = calculateDaysLeft();
+            const subscriptionEnd = userData.subscriptionEnd ? formatDate(userData.subscriptionEnd) : '--.--.----';
+            const status = daysLeft > 0 ? 'Активна' : 'Неактивна';
+            const statusClass = daysLeft > 0 ? 'status-active' : 'status-inactive';
+            
+            // Обновляем главный экран
+            document.getElementById('daysLeft').textContent = daysLeft;
+            document.getElementById('userStatus').textContent = daysLeft > 0 ? '✅ Активна' : '❌ Неактивна';
+            document.getElementById('userStatus').className = `status-badge ${statusClass}`;
+            
+            // Обновляем экран подписки
+            document.getElementById('subscriptionKeyDetail').textContent = userData.subscriptionKey;
+            document.getElementById('subscriptionEndDetail').textContent = subscriptionEnd;
+            document.getElementById('daysLeftDetail').textContent = daysLeft;
+            document.getElementById('subscriptionStatus').textContent = status;
+            document.getElementById('subscriptionStatus').className = `status-badge ${statusClass}`;
+        }
+
+        function updateUserStatus() {
+            // Обновляем статус соединения
+            const statusElement = document.getElementById('userStatus');
+            const daysLeft = calculateDaysLeft();
+            
+            if (daysLeft > 0) {
+                statusElement.textContent = '✅ Активна';
+                statusElement.className = 'status-badge status-active';
+            } else {
+                statusElement.textContent = '❌ Неактивна';
+                statusElement.className = 'status-badge status-inactive';
+            }
+        }
+
+        function calculateDaysLeft() {
+            if (!userData.subscriptionEnd) return 0;
+            
+            const now = new Date();
+            const diff = userData.subscriptionEnd - now;
+            return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('ru-RU');
+        }
+
+        function showScreen(screenName) {
+            // Скрываем все экраны
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            // Показываем выбранный экран
+            document.getElementById(screenName + 'Screen').classList.add('active');
+            
+            // Обновляем навигацию
+            updateNavigation(screenName);
+            
+            // Обновляем информацию при переходе на определенные экраны
+            if (screenName === 'subscription' || screenName === 'main') {
+                updateSubscriptionInfo();
+            }
+        }
+
+        function updateNavigation(currentScreen) {
+            // Сбрасываем активные кнопки навигации
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Активируем соответствующую кнопку
+            if (currentScreen === 'main' || currentScreen === 'servers' || 
+                currentScreen === 'promocodes' || currentScreen === 'instructions' ||
+                currentScreen === 'referral' || currentScreen === 'admin') {
+                document.querySelector('.nav-btn:nth-child(1)').classList.add('active');
+            } else if (currentScreen === 'subscription') {
+                document.querySelector('.nav-btn:nth-child(2)').classList.add('active');
+            } else if (currentScreen === 'support') {
+                document.querySelector('.nav-btn:nth-child(3)').classList.add('active');
+            }
+        }
+
+        function getGift() {
+            // Проверяем, получал ли уже подарок
+            if (userData.giftClaimed) {
+                showNotification('❌ Уже получено', 'Вы уже получали бесплатный подарок!');
+                return;
+            }
+
+            // Добавляем 3 дня к подписке
+            const now = new Date();
+            if (userData.subscriptionEnd && userData.subscriptionEnd > now) {
+                userData.subscriptionEnd = new Date(userData.subscriptionEnd.getTime() + 3 * 24 * 60 * 60 * 1000);
+            } else {
+                userData.subscriptionEnd = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+            }
+            
+            // Сохраняем подписку в локальное хранилище
+            saveSubscription();
+            
+            // Помечаем подарок как полученный
+            userData.giftClaimed = true;
+            localStorage.setItem(`giftClaimed_${userData.id}`, 'true');
+            
+            // Скрываем кнопку подарка
+            document.getElementById('giftButton').style.display = 'none';
+            
+            // Обновляем информацию
+            updateSubscriptionInfo();
+            updateUserStatus();
+            
+            // Показываем уведомление
+            showNotification('🎉 Подарок получен!', '+3 дня подписки добавлены!');
+        }
+
+        function saveSubscription() {
+            if (userData.id && userData.subscriptionEnd) {
+                const subscriptionData = {
+                    endDate: userData.subscriptionEnd.toISOString(),
+                    key: userData.subscriptionKey
+                };
+                localStorage.setItem(`subscription_${userData.id}`, JSON.stringify(subscriptionData));
+            }
+        }
+
+        function buySubscription() {
+            // Перенаправляем на покупку в боте
+            tg.openTelegramLink(`https://t.me/VirtualLVPN_bot?start=buy`);
+        }
+
+        function activatePromo() {
+            const promoCode = document.getElementById('promoInput').value.toUpperCase().trim();
+            
+            if (!promoCode) {
+                showNotification('❌ Ошибка', 'Введите промокод');
+                return;
+            }
+            
+            // Симулируем проверку промокодов
+            const validPromoCodes = {
+                'FREE': 7,
+                'WELCOME': 3,
+                'NOFREE': 1,
+                'LPN': 10
+            };
+            
+            if (validPromoCodes[promoCode]) {
+                const days = validPromoCodes[promoCode];
+                const now = new Date();
+                
+                if (userData.subscriptionEnd && userData.subscriptionEnd > now) {
+                    userData.subscriptionEnd = new Date(userData.subscriptionEnd.getTime() + days * 24 * 60 * 60 * 1000);
+                } else {
+                    userData.subscriptionEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+                }
+                
+                saveSubscription();
+                updateSubscriptionInfo();
+                updateUserStatus();
+                
+                document.getElementById('promoInput').value = '';
+                showNotification('🎉 Успешно!', `Промокод активирован! +${days} дней`);
+            } else {
+                showNotification('❌ Ошибка', 'Неверный промокод');
+            }
+        }
+
+        function copyConfig() {
+            if (!userData.subscriptionKey) {
+                showNotification('❌ Ошибка', 'Ключ подписки не загружен');
+                return;
+            }
+            
+            // Создаем URL для импорта конфигурации
+            const configUrl = `https://virtuallvpn.store/subscribe/${userData.subscriptionKey}`;
+            
+            // Копируем в буфер обмена
+            navigator.clipboard.writeText(configUrl).then(() => {
+                showNotification('✅ Успешно!', 'Ссылка для импорта скопирована');
+            }).catch(() => {
+                showNotification('❌ Ошибка', 'Не удалось скопировать');
+            });
+        }
+
+        function copyReferralLink() {
+            const link = document.getElementById('referralLink').textContent;
+            
+            navigator.clipboard.writeText(link).then(() => {
+                showNotification('✅ Успешно!', 'Реферальная ссылка скопирована');
+            }).catch(() => {
+                showNotification('❌ Ошибка', 'Не удалось скопировать');
+            });
+        }
+
+        function openSupportChat() {
+            tg.openTelegramLink('https://t.me/VirtualLVPN_Support');
+        }
+
+        function shareReferral() {
+            const link = document.getElementById('referralLink').textContent;
+            const message = `🚀 Присоединяйся к VirtualLVPN - лучший VPN сервис! \n\n${link}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'VirtualLVPN',
+                    text: message,
+                    url: link
+                });
+            } else {
+                showNotification('ℹ️ Информация', 'Скопируйте ссылку и отправьте другу');
+            }
+        }
+
+        // Админ-функции
+        function initAdminPanel() {
+            // Загружаем статистику (в реальном приложении здесь был бы запрос к API)
+            document.getElementById('adminTotalUsers').textContent = Math.floor(Math.random() * 1000) + 500;
+            document.getElementById('adminActiveSubs').textContent = Math.floor(Math.random() * 500) + 200;
+            document.getElementById('adminTotalIncome').textContent = `${Math.floor(Math.random() * 50000) + 25000}₽`;
+        }
+
+        function adminAddSubscription() {
+            showModal('addSubscriptionModal');
+        }
+
+        function adminAddSubscriptionConfirm() {
+            const userId = document.getElementById('adminUserId').value;
+            const days = parseInt(document.getElementById('adminDays').value);
+            
+            if (!userId || !days || days <= 0) {
+                showNotification('❌ Ошибка', 'Заполните все поля корректно');
+                return;
+            }
+            
+            // В реальном приложении здесь был бы запрос к API бота
+            showNotification('✅ Успешно!', `Подписка добавлена пользователю ${userId} на ${days} дней`);
+            hideModal('addSubscriptionModal');
+            
+            // Очищаем поля
+            document.getElementById('adminUserId').value = '';
+            document.getElementById('adminDays').value = '30';
+        }
+
+        function adminCreatePromo() {
+            // Генерируем случайный промокод
+            const promoCode = `VIP${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+            const days = Math.floor(Math.random() * 30) + 1;
+            
+            showNotification('🎫 Промокод создан', `Код: ${promoCode}\nДней: ${days}\n\nСкопируйте для отправки пользователям`);
+        }
+
+        function adminSendNotification() {
+            showNotification('📢 Уведомление отправлено', 'Рассылка запущена для всех пользователей');
+        }
+
+        // Вспомогательные функции
+        function showNotification(title, message, type = 'info') {
+            const notification = document.getElementById('notification');
+            const icon = document.getElementById('notificationIcon');
+            const notificationTitle = document.getElementById('notificationTitle');
+            const notificationMessage = document.getElementById('notificationMessage');
+            
+            // Устанавливаем иконку в зависимости от типа
+            if (type === 'success') {
+                icon.textContent = '✅';
+            } else if (type === 'error') {
+                icon.textContent = '❌';
+            } else if (type === 'warning') {
+                icon.textContent = '⚠️';
+            } else {
+                icon.textContent = 'ℹ️';
+            }
+            
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            notification.classList.add('active');
+            
+            // Автоматически скрываем через 5 секунд
+            setTimeout(() => {
+                notification.classList.remove('active');
+            }, 5000);
+        }
+
+        function hideNotification() {
+            document.getElementById('notification').classList.remove('active');
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Обработка событий Telegram Web App
+        tg.onEvent('viewportChanged', () => {
+            tg.expand();
+        });
+
+        // Запускаем инициализацию
+        if (tg.isReady) {
+            tg.ready();
+        }
+    </script>
+</body>
+</html>
